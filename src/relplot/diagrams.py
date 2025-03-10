@@ -286,6 +286,7 @@ def plot_rel_diagram(
     endpoint_prob_thresh=0.01,
     plot_labels=True,
     plot_diagonal=True,
+    textprops_CE=None,
     **unused_kwargs,
 ):
     """
@@ -305,11 +306,15 @@ def plot_rel_diagram(
         kde_bandwidth (float, optional): Override the default choice of bandwidth for plotting densities, if specified. Defaults to None.
         report_CE (bool, optional): Print the calibration error (smECE) on the plot. Defaults to True.
         report_CE_std (bool, optional): Compute and print a 95% confidence interval of the calibration error, estimated via bootstrapping. Defaults to True.
+        textprops_CE (dictionary, optional): Matplotlib ax.text properties of the printed calibration error (smECE). Defaults to None for no additional properties.
         custom_regressor (sklearn.base.BaseEstimator, optional): Use a custom sklearn estimator as the regressor, if specified. Defaults to None.
 
     Returns:
         matplotlib.figure.Figure: Reliability diagram figure.
     """
+
+    if textprops_CE is None:
+        textprops_CE = {}
     
     def get_ticks_from_density(dens, mesh, n_ticks=200):
         return np.random.default_rng(seed=0).choice(mesh, size=n_ticks, p=dens/np.sum(dens))
@@ -455,9 +460,9 @@ def plot_rel_diagram(
         ice = diagram["ce"]
         if "ce_ci_width" in diagram.keys():
             wid = diagram["ce_ci_width"]
-            ax.text(0.05, 0.9, f"$\\mathrm{{smECE}}: {ice:.3f}\\pm {wid:.3f}$", zorder=1000)
+            ax.text(0.05, 0.9, f"$\\mathrm{{smECE}}: {ice:.3f}\\pm {wid:.3f}$", zorder=1000, **textprops_CE)
         else:
-            ax.text(0.05, 0.9, f"smECE: {ice:.3f}", zorder=1000)
+            ax.text(0.05, 0.9, f"smECE: {ice:.3f}", zorder=1000, **textprops_CE)
     return fig, ax
 
 
