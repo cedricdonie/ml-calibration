@@ -4,22 +4,22 @@
 #
 
 from functools import partial
+
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 import scipy
-import matplotlib.pyplot as plt
-import matplotlib as mpl
 import seaborn as sns
 from deprecation import deprecated
-
 from matplotlib.collections import LineCollection
 from sklearn.ensemble import BaggingRegressor
 
 from . import config
-from .estimators import Binning, KernelSmoother, CenteredRegressor
-from .kernels import TruncatedGaussianKernel, ReflectedGaussianKernel
-from .metrics import smECE_fast, binnedECE, _get_default_kernel
+from .estimators import Binning, CenteredRegressor, KernelSmoother
+from .kernels import ReflectedGaussianKernel, TruncatedGaussianKernel
+from .metrics import _get_default_kernel, binnedECE, smECE_fast
 
 
 def plot_line(x, y, colors, ax, **kwargs):
@@ -41,7 +41,7 @@ def set_default_style():
 
     mpl.rcParams.update(
         {
-            "axes.edgecolor": '0.5',
+            "axes.edgecolor": "0.5",
             "font.size": 22,
             "legend.frameon": False,
             "patch.force_edgecolor": False,
@@ -75,7 +75,9 @@ def reliability_diagram(predictions, labels, estimator, centered_fit=True):
     return t, mu
 
 
-def compute_split_densities(f, y, x_eval=None, sigma=0.1, density_kernel = ReflectedGaussianKernel):
+def compute_split_densities(
+    f, y, x_eval=None, sigma=0.1, density_kernel=ReflectedGaussianKernel
+):
     # Computes one density for f|y=0, one for f|y=1
     ker = density_kernel(sigma)
     if x_eval is None:
@@ -99,7 +101,8 @@ def prepare_rel_diagram_binned(f, y, nbins=15):
     )
     alphas /= np.max(alphas)
     ece = binnedECE(f, y, nbins)
-    return {'t': t, 'mu' : mu, 'buckets': buckets, 'alphas': alphas, 'ece' : ece }
+    return {"t": t, "mu": mu, "buckets": buckets, "alphas": alphas, "ece": ece}
+
 
 def plot_rel_diagram_binned(t, mu, buckets, alphas, ece, fig=None, ax=None):
     set_default_style()
@@ -112,12 +115,12 @@ def plot_rel_diagram_binned(t, mu, buckets, alphas, ece, fig=None, ax=None):
         ax.stairs([yb], [lb, ub], fill=True, color="gray", alpha=alphas[i])
     ax.set_xlim((0, 1))
     ax.set_ylim((0, 1))
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
 
-    ax.plot(t, t, 'k--', lw=1, alpha=0.3)
-    ax.plot(t, mu, 'r-')
+    ax.plot(t, t, "k--", lw=1, alpha=0.3)
+    ax.plot(t, mu, "r-")
 
-    #ax.set_aspect("equal")
+    # ax.set_aspect("equal")
 
     ece_label = (
         f"$\\mathrm{{ECE}}_{{{nbins}}}: {ece:.3f}$"
@@ -133,14 +136,15 @@ def plot_rel_diagram_binned(t, mu, buckets, alphas, ece, fig=None, ax=None):
         ax.set_ylabel(r"E[ y | f ]")
     return fig, ax
 
+
 def rel_diagram_binned(f, y, nbins=15, fig=None, ax=None):
     diagram = prepare_rel_diagram_binned(f, y, nbins=nbins)
     return plot_rel_diagram_binned(**diagram, fig=fig, ax=ax)
 
 
 def prepare_rel_diagram(
-    f : npt.ArrayLike,
-    y : npt.ArrayLike,
+    f: npt.ArrayLike,
+    y: npt.ArrayLike,
     plot_confidence_band=True,
     plot_bag_lines=False,
     num_bootstrap=200,
@@ -148,7 +152,7 @@ def prepare_rel_diagram(
     report_CE=True,
     report_CE_std=True,
     custom_regressor=None,
-    kernel = None,
+    kernel=None,
     **unused_kwargs,
 ):
     """Computes calibration data for plotting reliability diagrams.
@@ -199,7 +203,6 @@ def prepare_rel_diagram(
     density = kernel(sigma).kde(f, t)
     outputs["density"] = density
 
-
     if not custom_regressor:
         estimator = KernelSmoother(kernel(sigma))
     else:
@@ -209,8 +212,8 @@ def prepare_rel_diagram(
     outputs["bags"] = []
     if plot_bag_lines or plot_confidence_band:
         bag = BaggingRegressor(estimator=estimator, n_estimators=num_bootstrap).fit(
-                f.reshape(-1, 1), y
-                )
+            f.reshape(-1, 1), y
+        )
         dfs = []
         for i, est in enumerate(bag.estimators_):
             mu = predict(est, t)
@@ -234,18 +237,20 @@ def prepare_rel_diagram(
         outputs["lower"] = lower
         outputs["upper"] = upper
 
-    outputs["densities"] = compute_split_densities(f , y, x_eval=t, sigma=sigma, density_kernel=kernel)
+    outputs["densities"] = compute_split_densities(
+        f, y, x_eval=t, sigma=sigma, density_kernel=kernel
+    )
 
     ## The endpoint densities
-    eps = 0.005 # intervals [0, eps] and [1-eps, 1] get collapsed into 'endpoints'
+    eps = 0.005  # intervals [0, eps] and [1-eps, 1] get collapsed into 'endpoints'
     for x0 in [0, 1]:
         mesh = t
-        I = np.where( np.abs(mesh - x0) <= eps )
-        outputs[f'{x0}pt_mu'] = mu[I].mean()
-        outputs[f'{x0}pt_density'] = density[I].sum() / density.sum()
+        I = np.where(np.abs(mesh - x0) <= eps)
+        outputs[f"{x0}pt_mu"] = mu[I].mean()
+        outputs[f"{x0}pt_density"] = density[I].sum() / density.sum()
         if plot_confidence_band:
-            outputs[f'{x0}pt_lower'] = lower[I].mean()
-            outputs[f'{x0}pt_upper'] = upper[I].mean()
+            outputs[f"{x0}pt_lower"] = lower[I].mean()
+            outputs[f"{x0}pt_upper"] = upper[I].mean()
 
     if report_CE:
         outputs["ce"] = ice
@@ -263,9 +268,9 @@ def prepare_rel_diagram(
             outputs["ce_ci_width"] = wid
 
     ## Include sub-samples
-    I = np.random.default_rng(seed=42).permutation(len(f))[:100] # at most 100 samples
-    outputs['f_samp'] = f[I]
-    outputs['y_samp'] = y[I]
+    I = np.random.default_rng(seed=42).permutation(len(f))[:100]  # at most 100 samples
+    outputs["f_samp"] = f[I]
+    outputs["y_samp"] = y[I]
 
     return outputs
 
@@ -280,12 +285,15 @@ def plot_rel_diagram(
     plot_density=False,
     plot_density_ticks=True,
     split_densities=False,
-    color='red',
-    density_color='gray',
+    color="red",
+    density_color="gray",
     special_endpoints=False,
     endpoint_prob_thresh=0.01,
     plot_labels=True,
     plot_diagonal=True,
+    textprops_CE=None,
+    size_scale=1.0,
+    rasterized=False,
     **unused_kwargs,
 ):
     """
@@ -305,22 +313,30 @@ def plot_rel_diagram(
         kde_bandwidth (float, optional): Override the default choice of bandwidth for plotting densities, if specified. Defaults to None.
         report_CE (bool, optional): Print the calibration error (smECE) on the plot. Defaults to True.
         report_CE_std (bool, optional): Compute and print a 95% confidence interval of the calibration error, estimated via bootstrapping. Defaults to True.
+        textprops_CE (dictionary, optional): Matplotlib ax.text properties of the printed calibration error (smECE). Defaults to None for no additional properties.
+        size_scale (float, optional): Scale factor for the size of the points in the density plot. Defaults to 1.0.
+        rasterized (bool, optional): Rasterize the density plot for better performance. Defaults to False.
         custom_regressor (sklearn.base.BaseEstimator, optional): Use a custom sklearn estimator as the regressor, if specified. Defaults to None.
 
     Returns:
         matplotlib.figure.Figure: Reliability diagram figure.
     """
-    
+    del unused_kwargs
+
+    if textprops_CE is None:
+        textprops_CE = {}
+
     def get_ticks_from_density(dens, mesh, n_ticks=200):
-        return np.random.default_rng(seed=0).choice(mesh, size=n_ticks, p=dens/np.sum(dens))
-    
+        return np.random.default_rng(seed=0).choice(
+            mesh, size=n_ticks, p=dens / np.sum(dens)
+        )
+
     def get_sizes_from_density(density):
         SIZE_SCALE = 200
         density /= 2
         filt = density < 1
-        density_n = (density**2) * filt + np.sqrt(density) * (1-filt)
+        density_n = (density**2) * filt + np.sqrt(density) * (1 - filt)
         return (density_n) * SIZE_SCALE
-
 
     if use_default_style:
         set_default_style()
@@ -329,7 +345,6 @@ def plot_rel_diagram(
 
     if ax is None or fig is None:
         fig, ax = plt.subplots(figsize=(6, 6))
- 
 
     ## main diagram
     t = diagram["mesh"]
@@ -343,28 +358,42 @@ def plot_rel_diagram(
     for mu in diagram["bags"]:
         alpha_scale = 0.20
         plot_line(
-            t, mu, ax=ax, colors=[np.clip(color * di * alpha_scale, 0, 1) for di in density], lw=1
+            t,
+            mu,
+            ax=ax,
+            colors=[np.clip(color * di * alpha_scale, 0, 1) for di in density],
+            lw=1,
         )
 
     ## main red line (simple)
     if plot_main_line and simple_main_line:
         mu = diagram["mu"]
         # colors = [color * np.array([1, 1, 1, np.clip(di + 0.1, 0, 1)]) for di in density]
-        # plot_line(t, mu, colors=colors, ax=ax, lw=2, ls="--") 
-        ax.plot(t, mu, '--', color=color, clip_on=False)
+        # plot_line(t, mu, colors=colors, ax=ax, lw=2, ls="--")
+        ax.plot(t, mu, "--", color=color, clip_on=False)
 
     ## main red line (density-dependent width)
     if plot_main_line and not simple_main_line:
-        mesh_d = np.linspace(0, 1, 1000) # denser mesh for the line
+        mesh_d = np.linspace(0, 1, 1000)  # denser mesh for the line
         mu = diagram["mu"]
-        mu_d = np.interp(mesh_d, diagram['mesh'], diagram['mu']) # denser mu
-        density_d = np.interp(mesh_d, diagram['mesh'], diagram['density'])
-        sizes = get_sizes_from_density(density_d)
-        colors = [color * np.array([1, 1, 1, np.clip(di * 0.3, 0, 1)]) for di in density_d]
-        ax.scatter(mesh_d, mu_d, marker='.', c=colors, s=sizes, clip_on=False, zorder=100)
+        mu_d = np.interp(mesh_d, diagram["mesh"], diagram["mu"])  # denser mu
+        density_d = np.interp(mesh_d, diagram["mesh"], diagram["density"])
+        sizes = get_sizes_from_density(density_d) * size_scale
+        colors = [
+            color * np.array([1, 1, 1, np.clip(di * 0.3, 0, 1)]) for di in density_d
+        ]
+        ax.scatter(
+            mesh_d,
+            mu_d,
+            marker=".",
+            c=colors,
+            s=sizes,
+            clip_on=False,
+            zorder=100,
+            rasterized=rasterized,
+        )
         # linewidths = density_d * 50
         # plot_line(mesh_d, mu_d, ax=ax, colors=colors, linewidths=linewidths, clip_on=False, zorder=100)
-
 
     ## confidence bands
     if "upper" in diagram.keys():
@@ -378,34 +407,63 @@ def plot_rel_diagram(
                 lw=0,
                 edgecolor=None,
                 # alpha = np.clip(density[i] * 0.5, 0, 1),
-                alpha = density_n[i] * 0.6,
-                color='gray',
-                clip_on=True
+                alpha=density_n[i] * 0.6,
+                color="gray",
+                clip_on=True,
+                rasterized=rasterized,
             )
-
 
     ## endpoint densities
     if special_endpoints:
         for x0 in [0, 1]:
-            mu = diagram[f'{x0}pt_mu']
-            pt_dens = diagram[f'{x0}pt_density']
+            mu = diagram[f"{x0}pt_mu"]
+            pt_dens = diagram[f"{x0}pt_density"]
             if pt_dens < endpoint_prob_thresh:
-                continue # Don't plot small probabilities
+                continue  # Don't plot small probabilities
 
             msize = 100 * (pt_dens)
             lw = msize / 3
-            ax.plot([x0], [mu], color=color, clip_on=False, zorder=100, marker='o', markersize=msize,markerfacecolor=color, markeredgecolor='none', alpha=1)
-            if f'{x0}pt_upper' in diagram.keys():
-                ub = diagram[f'{x0}pt_upper']
-                lb = diagram[f'{x0}pt_lower']
-                _, _, lines = ax.errorbar(x0, mu, yerr=[[mu-lb], [ub-mu]], clip_on=False, zorder=100, capsize=0, marker='none', lw=lw, color=color) # capsize=3
-                lines[0].set_capstyle('round')
+            ax.plot(
+                [x0],
+                [mu],
+                color=color,
+                clip_on=False,
+                zorder=100,
+                marker="o",
+                markersize=msize,
+                markerfacecolor=color,
+                markeredgecolor="none",
+                alpha=1,
+            )
+            if f"{x0}pt_upper" in diagram.keys():
+                ub = diagram[f"{x0}pt_upper"]
+                lb = diagram[f"{x0}pt_lower"]
+                _, _, lines = ax.errorbar(
+                    x0,
+                    mu,
+                    yerr=[[mu - lb], [ub - mu]],
+                    clip_on=False,
+                    zorder=100,
+                    capsize=0,
+                    marker="none",
+                    lw=lw,
+                    color=color,
+                )  # capsize=3
+                lines[0].set_capstyle("round")
 
-            ha = 'left' if x0 == 0 else 'right'
+            ha = "left" if x0 == 0 else "right"
             xform = ax.transData.inverted()
             width_pt = (xform.transform((msize, 0)) - xform.transform((0, 0)))[0] / 2.0
-            text_shift = (0.01 + width_pt ) * (1 if x0 == 0 else -1)
-            ax.text(x=x0 + text_shift, y=mu, s=f'({pt_dens:.2f})', fontsize='x-small', va='center', ha=ha, clip_on=False)
+            text_shift = (0.01 + width_pt) * (1 if x0 == 0 else -1)
+            ax.text(
+                x=x0 + text_shift,
+                y=mu,
+                s=f"({pt_dens:.2f})",
+                fontsize="x-small",
+                va="center",
+                ha=ha,
+                clip_on=False,
+            )
 
     if plot_labels:
         if config.use_tex_fonts:
@@ -415,10 +473,9 @@ def plot_rel_diagram(
             ax.set_xlabel("f")
             ax.set_ylabel(r"E[ y | f ]")
 
-
     ax.set_xlim((0, 1))
     ax.set_ylim((0, 1))
-    ax.set_aspect('equal')
+    ax.set_aspect("equal")
 
     ## density subplot
     if plot_density:
@@ -441,13 +498,21 @@ def plot_rel_diagram(
                 label=f"y={i}",
             )
     if plot_density_ticks:
+
         def _plot_ticks(fi, height=0.01, shift=0.0):
             # fi = get_ticks_from_density(dens, t, n_ticks = n_ticks)
-            ax.vlines(fi, -height + shift, +height + shift, color='black', clip_on=False, zorder = 101)
+            ax.vlines(
+                fi,
+                -height + shift,
+                +height + shift,
+                color="black",
+                clip_on=False,
+                zorder=101,
+            )
 
         n_ticks = 100
         tickH = 0.01
-        fs, ys = diagram['f_samp'][:n_ticks], diagram['y_samp'][:n_ticks]
+        fs, ys = diagram["f_samp"][:n_ticks], diagram["y_samp"][:n_ticks]
         _plot_ticks(fs[ys == 0], tickH, -tickH)
         _plot_ticks(fs[ys == 1], tickH, +tickH)
 
@@ -455,16 +520,19 @@ def plot_rel_diagram(
         ice = diagram["ce"]
         if "ce_ci_width" in diagram.keys():
             wid = diagram["ce_ci_width"]
-            ax.text(0.05, 0.9, f"$\\mathrm{{smECE}}: {ice:.3f}\\pm {wid:.3f}$", zorder=1000)
+            ax.text(
+                0.05,
+                0.9,
+                f"$\\mathrm{{smECE}}: {ice:.3f}\\pm {wid:.3f}$",
+                zorder=1000,
+                **textprops_CE,
+            )
         else:
-            ax.text(0.05, 0.9, f"smECE: {ice:.3f}", zorder=1000)
+            ax.text(0.05, 0.9, f"smECE: {ice:.3f}", zorder=1000, **textprops_CE)
     return fig, ax
 
 
-def rel_diagram(
-    f : npt.ArrayLike,
-    y : npt.ArrayLike,
-    **kwargs):
+def rel_diagram(f: npt.ArrayLike, y: npt.ArrayLike, **kwargs):
     """Compute and plot the reliability diagram for predictions f_i and labels y_i.
     This convenience function simply composes prepare_rel_diagram and plot_rel_diagram.
     """
